@@ -3,17 +3,12 @@
 import { useForm } from "react-hook-form"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form"
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/ModeToggle"
+import { RSA } from "@/lib/rsa"
+import secureLocalStorage from "react-secure-storage"
 
 interface LoginFormInputs {
   email: string
@@ -24,8 +19,8 @@ export default function LoginPage() {
   const form = useForm<LoginFormInputs>({
     defaultValues: {
       email: "admin@example.com",
-      password: "1234",
-    },
+      password: "1234"
+    }
   })
   const [formError, setFormError] = useState("")
   const router = useRouter()
@@ -34,12 +29,21 @@ export default function LoginPage() {
     setFormError("")
     form.clearErrors()
     try {
+      const rsa = new RSA()
+      let publicKey = localStorage.getItem("publicKey")
+      if (!publicKey) {
+        await rsa.generateKeyPair()
+        localStorage.setItem("publicKey", rsa.publicKey!)
+        secureLocalStorage.setItem("privateKey", rsa.privateKey!)
+        localStorage.setItem("encryptionMode", "server")
+        publicKey = rsa.publicKey!
+      }
+      const variables = { ...data, publicKey }
+
       const response = await fetch("/api/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(variables)
       })
       const result = await response.json()
       if (!response.ok) {
@@ -79,12 +83,7 @@ export default function LoginPage() {
                 <FormItem>
                   <FormLabel className="dark:text-gray-200">Email address</FormLabel>
                   <FormControl>
-                    <Input
-                      type="email"
-                      autoComplete="email"
-                      placeholder="Email address"
-                      {...field}
-                    />
+                    <Input type="email" autoComplete="email" placeholder="Email address" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -97,12 +96,7 @@ export default function LoginPage() {
                 <FormItem>
                   <FormLabel className="dark:text-gray-200">Password</FormLabel>
                   <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="current-password"
-                      placeholder="Password"
-                      {...field}
-                    />
+                    <Input type="password" autoComplete="current-password" placeholder="Password" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

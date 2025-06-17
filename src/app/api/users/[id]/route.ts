@@ -23,35 +23,35 @@ type Context = {
 }
 
 // GET /api/users/[id] - Get a single user by ID
-export const GET = withAuth(async (request: NextRequest, context: Context) => {
-  const id = (await context.params).id
+// export const GET = withAuth(async (request: NextRequest, context: Context) => {
+//   const id = (await context.params).id
 
-  try {
-    const userId = parseInt(id)
-    if (isNaN(userId)) {
-      return ApiResponse.error("Invalid user ID", 400)
-    }
+//   try {
+//     const userId = parseInt(id)
+//     if (isNaN(userId)) {
+//       return ApiResponse.error("Invalid user ID", 400)
+//     }
 
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-      .then(takeUniqueOrThrow)
+//     const user = await db
+//       .select()
+//       .from(users)
+//       .where(eq(users.id, userId))
+//       .limit(1)
+//       .then(takeUniqueOrThrow)
 
-    if (!user) {
-      return ApiResponse.notFound()
-    }
+//     if (!user) {
+//       return ApiResponse.notFound()
+//     }
 
-    // const encryptUser = new EncryptUser()
-    // await encryptUser.init()
-    // return ApiResponse.success(EncryptUser.decodeSensitiveFields(user[0]))
-    return ApiResponse.success(user)
-  } catch (error) {
-    console.error("Error fetching user:", error)
-    return ApiResponse.error("Failed to fetch user")
-  }
-})
+//     // const encryptUser = new EncryptUser()
+//     // await encryptUser.init()
+//     // return ApiResponse.success(EncryptUser.decodeSensitiveFields(user[0]))
+//     return ApiResponse.success(user)
+//   } catch (error) {
+//     console.error("Error fetching user:", error)
+//     return ApiResponse.error("Failed to fetch user")
+//   }
+// })
 
 // PUT /api/users/[id] - Replace a user
 export const PUT = withAuth(async (request: NextRequest, context: Context) => {

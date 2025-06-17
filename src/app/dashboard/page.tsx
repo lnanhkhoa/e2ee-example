@@ -8,52 +8,70 @@ import { EditUserModal } from "@/components/EditUserModal"
 import { ModeToggle } from "@/components/ModeToggle"
 import { Switch } from "@/components/ui/switch"
 import { VerifyEncryptionDialog } from "@/components/VerifyEncryptionDialog"
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { Label } from "@radix-ui/react-label"
-import { RSA } from "@/lib/rsa"
-const rsa = new RSA()
+import { BasicEncryptUser } from "@/lib/basic-encrypt-user"
+import secureLocalStorage from "react-secure-storage"
 
 export default function Dashboard() {
   const router = useRouter()
 
   const [encryptionMode, setEncryptionMode] = useState<"client" | "server">("server")
   const [pendingMode, setPendingMode] = useState<"client" | "server" | null>(null)
-  const [clientSideEncryption, setClientSideEncryption] = useState(encryptionMode === "client")
+  const [enableClientSide, setEnableClientSide] = useState(encryptionMode === "client")
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const [user, setUser] = useState<User | null>(null)
+  const [rawUser, setUser] = useState<User | null>(null)
+  const [decryptedUser, setDecryptedUser] = useState<User | null>(null)
+
   const [allRawUsers, setAllUsers] = useState<User[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [allDecryptedUsers, setAllDecryptedUsers] = useState<User[]>([])
+
+  const [isLoading, setIsLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
   useEffect(() => {
     async function decryptUser() {
-      if (clientSideEncryption && user) {
-        console.log("rsa.privateKey", rsa.privateKey, user.dateOfBirth)
-        const dateOfBirth = await rsa.decryptWithPrivateKey(rsa.privateKey!, user?.dateOfBirth!)
-        console.log("🚀 ~ decryptUser ~ dateOfBirth:", dateOfBirth)
+      if (encryptionMode === "server") return
+      if (enableClientSide && rawUser) {
+        const privateKey = secureLocalStorage.getItem("privateKey") as string
+        if (!privateKey) return
+        const encryptUser = new BasicEncryptUser()
+        const decodeUser = await encryptUser.rsaDecryptFields(privateKey, rawUser)
+        setDecryptedUser(decodeUser)
       }
     }
-    decryptUser()
-  }, [user, clientSideEncryption])
 
-  const allUsers = useMemo(async () => {
+    async function decryptUsers() {
+      if (encryptionMode === "server") return
+      if (enableClientSide && allRawUsers) {
+        const privateKey = secureLocalStorage.getItem("privateKey") as string
+        if (!privateKey) return
+        const encryptUser = new BasicEncryptUser()
+        const decodeUsers = await Promise.all(allRawUsers.map((user) => encryptUser.rsaDecryptFields(privateKey, user)))
+        setAllDecryptedUsers(decodeUsers)
+      }
+    }
+
+    if (encryptionMode === "client" && enableClientSide) {
+      console.log("first")
+      decryptUser()
+      decryptUsers()
+    }
+  }, [rawUser, enableClientSide, encryptionMode, allRawUsers])
+
+  const user = useMemo(() => {
+    if (!rawUser) return null
+    if (!enableClientSide) return rawUser
+    return decryptedUser
+  }, [rawUser, enableClientSide, decryptedUser])
+
+  const allUsers = useMemo(() => {
     if (!allRawUsers) return []
-    if (!clientSideEncryption) return allRawUsers
-    // const privateKey = localStorage.getItem("privateKey")
-    // if (!privateKey) return allRawUsers
-    // const basicEncryptUser = new BasicEncryptUser()
-    // const decryptedUsers = allRawUsers.map((user) => basicEncryptUser.decodeSensitiveFields(user))
-    // return decryptedUsers
-    return allRawUsers
-  }, [allRawUsers, clientSideEncryption])
+    if (!enableClientSide) return allRawUsers
+    return allDecryptedUsers
+  }, [allRawUsers, enableClientSide, allDecryptedUsers])
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -66,7 +84,8 @@ export default function Dashboard() {
       router.push("/login")
     })
     fetchAllUsers()
-  }, [router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleEncryptionModeChange = (mode: "client" | "server") => {
     setPendingMode(mode)
@@ -81,9 +100,9 @@ export default function Dashboard() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ encryptionMode: pendingMode }),
+        body: JSON.stringify({ encryptionMode: pendingMode })
       })
       if (!response.ok) throw new Error("Failed to update encryption mode")
 
@@ -113,53 +132,29 @@ export default function Dashboard() {
       router.push("/login")
       return
     }
-    const response = await fetch("/api/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const response = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } })
     const result = await response.json()
     if (!response.ok) {
       router.push("/login")
       return
     }
-    let parsedUser = result.data
+    const parsedUser = result.data
 
     if (parsedUser.encryptionMode === "client") {
-      await rsa.generateKeyPair()
-      console.log("rsa", rsa.privateKey)
-      const publicKey = await rsa.exportPublicKeyToPEM()
-      const response = await fetch("/api/me", {
-        headers: { Authorization: `Bearer ${token}` },
-        method: "POST",
-        body: JSON.stringify({ publicKey }),
-      })
-      const result = await response.json()
-      if (!response.ok) {
-        router.push("/login")
-        return
-      }
-
-      const response2 = await fetch("/api/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const result2 = await response2.json()
-      if (!response2.ok) {
-        router.push("/login")
-        return
-      }
-      parsedUser = result2.data
+      //
     }
 
     setUser(parsedUser)
     setEncryptionMode(parsedUser.encryptionMode)
   }
 
-  const fetchAllUsers = async () => {
+  async function fetchAllUsers() {
     try {
       setIsLoading(true)
       const response = await fetch("/api/users", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
       })
       const result = await response.json()
 
@@ -180,10 +175,12 @@ export default function Dashboard() {
     fetch("/api/me", {
       method: "DELETE",
       headers: {
-        Authorization: `Bearer ${token}`,
-      },
+        Authorization: `Bearer ${token}`
+      }
     }).finally(() => {
       localStorage.removeItem("token")
+      localStorage.removeItem("privateKey")
+      localStorage.removeItem("publicKey")
       router.push("/login")
     })
   }
@@ -199,9 +196,9 @@ export default function Dashboard() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("token")}`
         },
-        body: JSON.stringify(updatedUser),
+        body: JSON.stringify(updatedUser)
       })
 
       if (!response.ok) {
@@ -217,9 +214,7 @@ export default function Dashboard() {
           ...user,
           ...updatedUser,
           decryptedDateOfBirth: updatedUser.dateOfBirth ? updatedUser.dateOfBirth : undefined,
-          decryptedSalary: updatedUser.salary
-            ? `$${parseInt(updatedUser.salary).toLocaleString()}`
-            : undefined,
+          decryptedSalary: updatedUser.salary ? `$${parseInt(updatedUser.salary).toLocaleString()}` : undefined
         }
         setUser(updatedCurrentUser as User)
       }
@@ -250,8 +245,7 @@ export default function Dashboard() {
                 <Select
                   value={encryptionMode}
                   onValueChange={(value) => {
-                    if (value !== encryptionMode)
-                      handleEncryptionModeChange(value as "client" | "server")
+                    if (value !== encryptionMode) handleEncryptionModeChange(value as "client" | "server")
                   }}
                 >
                   <SelectTrigger className="w-[180px]">
@@ -273,9 +267,9 @@ export default function Dashboard() {
                   <>
                     <Switch
                       id="client-side-encryption"
-                      checked={clientSideEncryption}
+                      checked={enableClientSide}
                       onCheckedChange={(checked) => {
-                        setClientSideEncryption(checked)
+                        setEnableClientSide(checked)
                       }}
                       aria-label="Toggle client-side encryption"
                       className="mr-2"
@@ -298,28 +292,20 @@ export default function Dashboard() {
         <div className="px-4 sm:px-0">
           <div className="bg-white dark:bg-gray-950 overflow-hidden shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-800 transition-colors">
             <div className="px-4 py-5 sm:px-6">
-              <h2 className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">
-                User Profile
-              </h2>
+              <h2 className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">User Profile</h2>
             </div>
             <div className="border-t border-gray-200 dark:border-gray-800 px-4 py-5 sm:p-0">
               <dl className="sm:divide-y sm:divide-gray-200 dark:sm:divide-gray-800">
                 <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
-                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
-                    {user.name}
-                  </dd>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{user.name}</dd>
                 </div>
                 <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
-                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
-                    {user.email}
-                  </dd>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{user.email}</dd>
                 </div>
                 <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Phone Number
-                  </dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone Number</dt>
                   <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
                     {user.phoneNumber || "N/A"}
                   </dd>
@@ -331,9 +317,7 @@ export default function Dashboard() {
                   </dd>
                 </div>
                 <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Date of Birth
-                  </dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth</dt>
                   <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
                     {user.dateOfBirth || "N/A"}
                   </dd>
@@ -353,14 +337,18 @@ export default function Dashboard() {
         <div className="px-4 sm:px-0">
           <div className="bg-white dark:bg-gray-950 overflow-hidden shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-800 transition-colors">
             <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-800">
-              <h2 className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">
-                All Users
-              </h2>
+              <h2 className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">All Users</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
                 <thead className="bg-gray-50 dark:bg-gray-900 transition-colors">
                   <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                    >
+                      ID
+                    </th>
                     <th
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
@@ -406,22 +394,25 @@ export default function Dashboard() {
                   {allUsers?.length > 0 ? (
                     allUsers.map((user) => (
                       <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 group">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 overflow-hidden text-ellipsis">
+                          {user.id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 overflow-hidden text-ellipsis">
                           {user.name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 overflow-hidden text-ellipsis">
                           {user.email}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 max-w-[150px] overflow-hidden text-ellipsis">
                           {user.phoneNumber || "N/A"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 max-w-[150px] overflow-hidden text-ellipsis">
                           {user.address || "N/A"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 max-w-[150px] overflow-hidden text-ellipsis">
                           {user.dateOfBirth || "N/A"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 max-w-[150px] overflow-hidden text-ellipsis">
                           {user.salary || "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -429,7 +420,7 @@ export default function Dashboard() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleEditUser(user)}
-                            disabled={!clientSideEncryption}
+                            disabled={encryptionMode === "client" && !enableClientSide}
                             className="mr-4 opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             Edit
@@ -439,10 +430,7 @@ export default function Dashboard() {
                     ))
                   ) : (
                     <tr>
-                      <td
-                        colSpan={4}
-                        className="px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-300"
-                      >
+                      <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-300">
                         No users found
                       </td>
                     </tr>

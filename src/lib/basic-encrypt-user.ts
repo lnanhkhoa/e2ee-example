@@ -1,5 +1,5 @@
+import { rsaInstance } from "@/utils/rsa-instance"
 import { AES } from "./aes"
-import crypto from "crypto"
 
 export class BasicEncryptUser {
   aes: AES | null = null
@@ -17,7 +17,7 @@ export class BasicEncryptUser {
       dateOfBirth: user.dateOfBirth ? this.aes.decrypt(user.dateOfBirth) : null,
       salary: user.salary ? this.aes.decrypt(user.salary) : null,
       phoneNumber: user.phoneNumber ? this.aes.decrypt(user.phoneNumber) : null,
-      address: user.address ? this.aes.decrypt(user.address) : null,
+      address: user.address ? this.aes.decrypt(user.address) : null
     }
   }
 
@@ -31,43 +31,31 @@ export class BasicEncryptUser {
       dateOfBirth: user.dateOfBirth ? this.aes.encrypt(user.dateOfBirth) : null,
       salary: user.salary ? this.aes.encrypt(user.salary) : null,
       phoneNumber: user.phoneNumber ? this.aes.encrypt(user.phoneNumber) : null,
-      address: user.address ? this.aes.encrypt(user.address) : null,
+      address: user.address ? this.aes.encrypt(user.address) : null
     }
   }
 
-  rsaEncryptFields(user: any, rsaPublicKey: string) {
+  async rsaEncryptFields(publicKeyPem: string, user: any) {
     return {
       ...user,
       dateOfBirth: user.dateOfBirth
-        ? crypto.publicEncrypt(rsaPublicKey, Buffer.from(user.dateOfBirth)).toString("base64")
+        ? await rsaInstance.serverEncryptWithPublicKey(publicKeyPem, user.dateOfBirth)
         : null,
-      salary: user.salary
-        ? crypto.publicEncrypt(rsaPublicKey, Buffer.from(user.salary)).toString("base64")
-        : null,
+      salary: user.salary ? await rsaInstance.serverEncryptWithPublicKey(publicKeyPem, user.salary) : null,
       phoneNumber: user.phoneNumber
-        ? crypto.publicEncrypt(rsaPublicKey, Buffer.from(user.phoneNumber)).toString("base64")
+        ? await rsaInstance.serverEncryptWithPublicKey(publicKeyPem, user.phoneNumber)
         : null,
-      address: user.address
-        ? crypto.publicEncrypt(rsaPublicKey, Buffer.from(user.address)).toString("base64")
-        : null,
+      address: user.address ? await rsaInstance.serverEncryptWithPublicKey(publicKeyPem, user.address) : null
     }
   }
 
-  rsaDecryptFields(user: any, rsaPrivateKey: string) {
+  async rsaDecryptFields(privateKeyPem: string, user: any) {
     return {
       ...user,
-      dateOfBirth: user.dateOfBirth
-        ? crypto.privateDecrypt(rsaPrivateKey, Buffer.from(user.dateOfBirth)).toString("base64")
-        : null,
-      salary: user.salary
-        ? crypto.privateDecrypt(rsaPrivateKey, Buffer.from(user.salary)).toString("base64")
-        : null,
-      phoneNumber: user.phoneNumber
-        ? crypto.privateDecrypt(rsaPrivateKey, Buffer.from(user.phoneNumber)).toString("base64")
-        : null,
-      address: user.address
-        ? crypto.privateDecrypt(rsaPrivateKey, Buffer.from(user.address)).toString("base64")
-        : null,
+      dateOfBirth: user.dateOfBirth ? await rsaInstance.decryptWithPrivateKey(privateKeyPem, user.dateOfBirth) : null,
+      salary: user.salary ? await rsaInstance.decryptWithPrivateKey(privateKeyPem, user.salary) : null,
+      phoneNumber: user.phoneNumber ? await rsaInstance.decryptWithPrivateKey(privateKeyPem, user.phoneNumber) : null,
+      address: user.address ? await rsaInstance.decryptWithPrivateKey(privateKeyPem, user.address) : null
     }
   }
 }

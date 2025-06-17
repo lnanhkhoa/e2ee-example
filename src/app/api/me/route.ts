@@ -14,42 +14,38 @@ type TokenPayload = {
 }
 
 // GET /api/me - Get current user
-export const GET = withAuth(
-  async (request: NextRequest, context: { user: any; session: Session }) => {
-    try {
-      const { user, session } = context
-      if (!user || !session) {
-        return ApiResponse.error("Unauthorized", 401)
-      }
-
-      const encryptUser = new EncryptUser()
-      await encryptUser.init()
-
-      const decodedUser = encryptUser.decodeSensitiveFields(user)
-
-      const { password, ...rest } = decodedUser
-      const dataUser = {
-        ...rest,
-        encryptionMode: session.encryptionMode,
-      }
-
-      if (session.encryptionMode === "client") {
-        const publicKey = session.publicKey
-        console.log("🚀 ~ publicKey:", session)
-        if (!publicKey) {
-          return ApiResponse.error("Public key not found", 401)
-        }
-        const reEncyptDataUser = encryptUser.rsaEncryptFields(dataUser, publicKey)
-        return ApiResponse.success(reEncyptDataUser)
-      }
-
-      return ApiResponse.success(dataUser)
-    } catch (error) {
-      console.error("Error fetching user:", error)
-      return ApiResponse.error("Failed to fetch user")
+export const GET = withAuth(async (request: NextRequest, context: { user: any; session: Session }) => {
+  try {
+    const { user, session } = context
+    if (!user || !session) {
+      return ApiResponse.error("Unauthorized", 401)
     }
-  },
-)
+
+    const encryptUser = new EncryptUser()
+    await encryptUser.init()
+
+    const decodedUser = encryptUser.decodeSensitiveFields(user)
+
+    const { password, ...rest } = decodedUser
+    const dataUser = {
+      ...rest,
+      encryptionMode: session.encryptionMode
+    }
+
+    if (session.encryptionMode === "client") {
+      const publicKey = session.publicKey
+      if (!publicKey) return ApiResponse.error("Public key not found", 401)
+      const reEncyptDataUser = await encryptUser.rsaEncryptFields(publicKey, dataUser)
+      return ApiResponse.success(reEncyptDataUser)
+    }
+
+    return ApiResponse.success(dataUser)
+  } catch (error) {
+    console.error("Error fetching user:", error)
+    return ApiResponse.error("Failed to fetch user")
+  }
+})
+
 
 export async function POST(request: NextRequest) {
   try {
