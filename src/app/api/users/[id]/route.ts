@@ -22,37 +22,6 @@ type Context = {
   session: Session
 }
 
-// GET /api/users/[id] - Get a single user by ID
-// export const GET = withAuth(async (request: NextRequest, context: Context) => {
-//   const id = (await context.params).id
-
-//   try {
-//     const userId = parseInt(id)
-//     if (isNaN(userId)) {
-//       return ApiResponse.error("Invalid user ID", 400)
-//     }
-
-//     const user = await db
-//       .select()
-//       .from(users)
-//       .where(eq(users.id, userId))
-//       .limit(1)
-//       .then(takeUniqueOrThrow)
-
-//     if (!user) {
-//       return ApiResponse.notFound()
-//     }
-
-//     // const encryptUser = new EncryptUser()
-//     // await encryptUser.init()
-//     // return ApiResponse.success(EncryptUser.decodeSensitiveFields(user[0]))
-//     return ApiResponse.success(user)
-//   } catch (error) {
-//     console.error("Error fetching user:", error)
-//     return ApiResponse.error("Failed to fetch user")
-//   }
-// })
-
 // PUT /api/users/[id] - Replace a user
 export const PUT = withAuth(async (request: NextRequest, context: Context) => {
   const id = (await context.params).id
@@ -63,18 +32,11 @@ export const PUT = withAuth(async (request: NextRequest, context: Context) => {
     const body = await request.json()
 
     // Check if user exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-      .then(takeUniqueOrThrow)
-    if (!existingUser) {
-      return ApiResponse.notFound()
-    }
+    const existingUser = await db.select().from(users).where(eq(users.id, userId)).limit(1).then(takeUniqueOrThrow)
+    if (!existingUser) return ApiResponse.notFound()
 
     const encryptUser = new EncryptUser()
-    await encryptUser.init()
+    await encryptUser.initialize()
 
     // Update user
     const encodedFields = encryptUser.encodeSensitiveFields(body)
@@ -84,20 +46,15 @@ export const PUT = withAuth(async (request: NextRequest, context: Context) => {
         name: body.name || existingUser.name,
         email: body.email || existingUser.email,
         ...encodedFields,
-        updatedAt: new Date(),
+        updatedAt: new Date()
       })
       .where(eq(users.id, userId))
-      .returning()
+      .returning({ id: users.id })
       .then(takeUniqueOrThrow)
 
-    const decodedUser = encryptUser.decodeSensitiveFields(updatedUser)
-
-    return ApiResponse.success(decodedUser)
+    return ApiResponse.success(updatedUser)
   } catch (error: any) {
-    console.error("Error updating user:", error)
-    if (error.message.includes("UNIQUE constraint failed")) {
-      return ApiResponse.error("Email already exists", 409)
-    }
+    if (error.message.includes("UNIQUE constraint failed")) return ApiResponse.error("Email already exists", 409)
     return ApiResponse.error("Failed to update user")
   }
 })
@@ -111,29 +68,17 @@ export const PATCH = withAuth(async (request: NextRequest, context: Context) => 
     const body = await request.json()
 
     // Check if user exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-      .then(takeUniqueOrThrow)
+    const existingUser = await db.select().from(users).where(eq(users.id, userId)).limit(1).then(takeUniqueOrThrow)
     if (!existingUser) {
       return ApiResponse.notFound()
     }
 
     // Only update the fields that are provided in the request
-    const updateData: any = pick(body, [
-      "name",
-      "email",
-      "dateOfBirth",
-      "salary",
-      "phoneNumber",
-      "address",
-    ])
+    const updateData: any = pick(body, ["name", "email", "dateOfBirth", "salary", "phoneNumber", "address"])
 
     // Encode sensitive fields
     const encryptUser = new EncryptUser()
-    await encryptUser.init()
+    await encryptUser.initialize()
     const encodedFields = encryptUser.encodeSensitiveFields(updateData)
 
     // Update user
@@ -141,15 +86,12 @@ export const PATCH = withAuth(async (request: NextRequest, context: Context) => 
       .update(users)
       .set(encodedFields)
       .where(eq(users.id, userId))
-      .returning()
+      .returning({ id: users.id })
       .then(takeUniqueOrThrow)
 
-    return ApiResponse.success(encryptUser.decodeSensitiveFields(updatedUser))
+    return ApiResponse.success(updatedUser)
   } catch (error: any) {
-    console.error("Error updating user:", error)
-    if (error.message.includes("UNIQUE constraint failed")) {
-      return ApiResponse.error("Email already exists", 409)
-    }
+    if (error.message.includes("UNIQUE constraint failed")) return ApiResponse.error("Email already exists", 409)
     return ApiResponse.error("Failed to update user")
   }
 })
@@ -159,27 +101,17 @@ export const DELETE = withAuth(async (request: NextRequest, context: Context) =>
   const id = (await context.params).id
   try {
     const userId = parseInt(id)
-    if (isNaN(userId)) {
-      return ApiResponse.error("Invalid user ID", 400)
-    }
+    if (isNaN(userId)) return ApiResponse.error("Invalid user ID", 400)
 
     // Check if user exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-      .then(takeUniqueOrThrow)
-    if (!existingUser) {
-      return ApiResponse.notFound()
-    }
+    const existingUser = await db.select().from(users).where(eq(users.id, userId)).limit(1).then(takeUniqueOrThrow)
+    if (!existingUser) return ApiResponse.notFound()
 
     // Delete user
     await db.delete(users).where(eq(users.id, userId))
 
     return ApiResponse.success({ message: "User deleted successfully" })
   } catch (error) {
-    console.error("Error deleting user:", error)
     return ApiResponse.error("Failed to delete user")
   }
 })

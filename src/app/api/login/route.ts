@@ -5,6 +5,9 @@ import { eq } from "drizzle-orm"
 import bcryptjs from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { JWT_SECRET } from "@/utils/config"
+import { AES } from "@/lib/aes"
+import { rsaInstance } from "@/utils/rsa-instance"
+import { EncryptUser } from "@/lib/encrypt-user"
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +17,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    // Find user by email
     const user = await db.select().from(users).where(eq(users.email, email)).limit(1).then(takeUniqueOrThrow)
     if (!user) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 
@@ -22,12 +24,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const session = await db.insert(sessions).values({ userId: user.id, publicKey }).returning()
+    const encryptUser = new EncryptUser()
+    await encryptUser.initialize()
 
-    const payload = { userId: user.id, sessionId: session[0].id }
+    const aes = new AES()
+    const newUserKey = aes.getMasterKey()
+    const encryptedAESKey = await encryptUser.aes?.encrypt(newUserKey)
+    const rsaEncryptedAESKey = await rsaInstance.serverEncryptWithPublicKey(publicKey, newUserKey)
+
+    const session = await db
+      .insert(sessions)
+      .values({ userId: user.id, publicKey, encryptedAESKey })
+      .returning({ id: sessions.id })
+      .then(takeUniqueOrThrow)
+    const payload = { userId: user.id, sessionId: session.id }
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1d" })
 
-    return NextResponse.json({ user, token })
+    return NextResponse.json({ user, token, encryptedAESKey: rsaEncryptedAESKey })
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

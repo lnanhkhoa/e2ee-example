@@ -35,6 +35,7 @@ export const sessions = sqliteTable("user_sessions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").notNull(),
   publicKey: text("public_key"),
+  encryptedAESKey: text("encrypted_aes_key"),
   encryptionMode: text("encryption_mode", { enum: ["server", "client"] })
     .notNull()
     .default("server"),

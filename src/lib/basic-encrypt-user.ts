@@ -4,8 +4,10 @@ import { AES } from "./aes"
 export class BasicEncryptUser {
   aes: AES | null = null
 
-  setAES(aes: AES) {
-    this.aes = aes
+  constructor(aes?: AES) {
+    if (aes) {
+      this.aes = aes
+    }
   }
 
   decodeSensitiveFields(user: any) {
@@ -32,30 +34,6 @@ export class BasicEncryptUser {
       salary: user.salary ? this.aes.encrypt(user.salary) : null,
       phoneNumber: user.phoneNumber ? this.aes.encrypt(user.phoneNumber) : null,
       address: user.address ? this.aes.encrypt(user.address) : null
-    }
-  }
-
-  async rsaEncryptFields(publicKeyPem: string, user: any) {
-    return {
-      ...user,
-      dateOfBirth: user.dateOfBirth
-        ? await rsaInstance.serverEncryptWithPublicKey(publicKeyPem, user.dateOfBirth)
-        : null,
-      salary: user.salary ? await rsaInstance.serverEncryptWithPublicKey(publicKeyPem, user.salary) : null,
-      phoneNumber: user.phoneNumber
-        ? await rsaInstance.serverEncryptWithPublicKey(publicKeyPem, user.phoneNumber)
-        : null,
-      address: user.address ? await rsaInstance.serverEncryptWithPublicKey(publicKeyPem, user.address) : null
-    }
-  }
-
-  async rsaDecryptFields(privateKeyPem: string, user: any) {
-    return {
-      ...user,
-      dateOfBirth: user.dateOfBirth ? await rsaInstance.decryptWithPrivateKey(privateKeyPem, user.dateOfBirth) : null,
-      salary: user.salary ? await rsaInstance.decryptWithPrivateKey(privateKeyPem, user.salary) : null,
-      phoneNumber: user.phoneNumber ? await rsaInstance.decryptWithPrivateKey(privateKeyPem, user.phoneNumber) : null,
-      address: user.address ? await rsaInstance.decryptWithPrivateKey(privateKeyPem, user.address) : null
     }
   }
 }

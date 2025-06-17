@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# e2ee-user-profile
+
+A modern user profile application with end-to-end encryption (E2EE) built using Next.js, React, TypeScript, and local SQLite storage. This project demonstrates secure handling of user data, modern UI/UX patterns, and a robust, full-stack TypeScript setup.
+
+## Features
+- End-to-end encrypted user profiles
+- Modern UI with Radix UI and Tailwind CSS
+- Local SQLite database for development
+- Form validation with React Hook Form and Zod
+- Secure storage and authentication
+
+## Tech Stack
+- **Framework:** Next.js 15 (React 19)
+- **Language:** TypeScript
+- **UI:** Tailwind CSS, Radix UI
+- **Database:** SQLite (via Drizzle ORM)
+- **ORM:** Drizzle ORM
+- **Other:** bcrypt, JWT, secure storage, PostCSS
 
 ## Getting Started
 
-First, run the development server:
-
+### 1. Install dependencies
 ```bash
-npm run dev
+npm install
 # or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+yarn install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Initialize the database
+```bash
+npm run init-db
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Start the development server
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Learn More
+## Scripts
+- `dev`: Start the dev server (with DB init)
+- `seed`: Reseed the database
+- `build`: Build the app for production
+- `start`: Start the production server
+- `lint`: Run ESLint
+- `init-db`: Initialize local SQLite DB if missing
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
+```
+/ ├── src/
+│   ├── app/         # Next.js app directory (routes, pages)
+│   ├── components/  # UI components
+│   ├── lib/         # Database, encryption, and utilities
+│   └── utils/       # Helper utilities
+├── public/          # Static assets
+├── local.db         # SQLite database (local)
+├── package.json     # Project config
+├── tsconfig.json    # TypeScript config
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Configuration
+- Environment variables may be required for DB, encryption, or authentication. See `.env.example` if present.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
+[MIT](LICENSE)
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+_Edit this README to add more details about your app’s features, usage, or deployment!_

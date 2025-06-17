@@ -7,8 +7,8 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/ModeToggle"
-import { RSA } from "@/lib/rsa"
 import secureLocalStorage from "react-secure-storage"
+import { rsaInstance } from "@/utils/rsa-instance"
 
 interface LoginFormInputs {
   email: string
@@ -16,12 +16,7 @@ interface LoginFormInputs {
 }
 
 export default function LoginPage() {
-  const form = useForm<LoginFormInputs>({
-    defaultValues: {
-      email: "admin@example.com",
-      password: "1234"
-    }
-  })
+  const form = useForm<LoginFormInputs>({ defaultValues: { email: "admin@example.com", password: "1234" } })
   const [formError, setFormError] = useState("")
   const router = useRouter()
 
@@ -29,15 +24,7 @@ export default function LoginPage() {
     setFormError("")
     form.clearErrors()
     try {
-      const rsa = new RSA()
-      let publicKey = localStorage.getItem("publicKey")
-      if (!publicKey) {
-        await rsa.generateKeyPair()
-        localStorage.setItem("publicKey", rsa.publicKey!)
-        secureLocalStorage.setItem("privateKey", rsa.privateKey!)
-        localStorage.setItem("encryptionMode", "server")
-        publicKey = rsa.publicKey!
-      }
+      const publicKey = await rsaInstance.generateKeyPair()
       const variables = { ...data, publicKey }
 
       const response = await fetch("/api/login", {
@@ -47,15 +34,16 @@ export default function LoginPage() {
       })
       const result = await response.json()
       if (!response.ok) {
-        if (result.error) {
-          setFormError(result.error)
-        } else {
-          setFormError("Something went wrong")
-        }
+        setFormError(result.error ?? "Something went wrong")
         return
       }
-      localStorage.setItem("token", result.token)
-      router.push("/dashboard")
+
+      const privateKey = await rsaInstance.decryptWithPrivateKey(rsaInstance.privateKey!, result.encryptedAESKey)
+      if (privateKey) {
+        secureLocalStorage.setItem("privateKey", privateKey)
+        localStorage.setItem("token", result.token)
+        router.push("/dashboard")
+      }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Invalid credentials")
     }

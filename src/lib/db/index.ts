@@ -39,6 +39,7 @@ const initDb = async () => {
       user_id INTEGER NOT NULL,
       revoked INTEGER NOT NULL DEFAULT 0,
       public_key TEXT,
+      encrypted_aes_key TEXT,
       encryption_mode TEXT NOT NULL DEFAULT 'server',
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -56,7 +57,7 @@ const initDb = async () => {
     `,
     sql`
       CREATE INDEX IF NOT EXISTS idx_users_role_id ON users (role_id)
-    `,
+    `
   ].forEach((query) => db.run(query))
 }
 
@@ -88,8 +89,8 @@ const seedDb = async () => {
       dateOfBirth: aes.encrypt("1990-01-01"),
       salary: aes.encrypt("1000"),
       phoneNumber: aes.encrypt("1234567890"),
-      address: aes.encrypt("Master Street"),
-    },
+      address: aes.encrypt("Master Street")
+    }
   ])
 
   const seedingUsers = new Array(1000).fill(1).map((_, index) => ({
@@ -100,7 +101,7 @@ const seedDb = async () => {
     dateOfBirth: aes.encrypt("1994-04-01"),
     salary: aes.encrypt(String(100 + index)),
     phoneNumber: aes.encrypt("1234567890"),
-    address: aes.encrypt(`${index + 1} Main St`),
+    address: aes.encrypt(`${index + 1} Main St`)
   }))
   await db.insert(schema.users).values(seedingUsers)
 }

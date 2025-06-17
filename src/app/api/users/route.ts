@@ -1,14 +1,16 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { Session, User, users } from "@/lib/db/schema"
+import { Session, takeUniqueOrThrow, User, users } from "@/lib/db/schema"
 import { ApiResponse } from "@/lib/api-utils"
 import { EncryptUser } from "@/lib/encrypt-user"
 import { withAuth } from "@/lib/with-auth"
+import { AES } from "@/lib/aes"
+import { BasicEncryptUser } from "@/lib/basic-encrypt-user"
 
 // GET /api/users - Get all users
 export const GET = withAuth(async (request: NextRequest, context: { user: User; session: Session }) => {
   const encryptUser = new EncryptUser()
-  await encryptUser.init()
+  await encryptUser.initialize()
 
   try {
     const allUsers = await db.select().from(users)
@@ -19,18 +21,17 @@ export const GET = withAuth(async (request: NextRequest, context: { user: User; 
     })
 
     if (context.session.encryptionMode === "client") {
-      const publicKey = context.session.publicKey
-      if (!publicKey) return ApiResponse.error("Public key not found", 401)
-      for (let i = 0; i < dataUsers.length; i++) {
-        const reEncyptDataUser = await encryptUser.rsaEncryptFields(publicKey, dataUsers[i])
-        dataUsers[i] = reEncyptDataUser
-      }
-      return ApiResponse.success(dataUsers)
+      const encryptedAESKey = context.session.encryptedAESKey
+      if (!encryptedAESKey) return ApiResponse.error("AES key not found", 401)
+      const userAESKey = encryptUser.aes?.decrypt(encryptedAESKey)
+
+      const encryptUserAESKey = new BasicEncryptUser(new AES(userAESKey))
+      const reEncyptDataUsers = dataUsers.map((user) => encryptUserAESKey.encodeSensitiveFields(user))
+      return ApiResponse.success(reEncyptDataUsers)
     }
 
     return ApiResponse.success(dataUsers)
   } catch (error) {
-    console.error("Error fetching users:", error)
     return ApiResponse.error("Failed to fetch users")
   }
 })
@@ -46,7 +47,8 @@ export const POST = withAuth(async (request: NextRequest, context: { user: User;
     }
 
     const encryptUser = new EncryptUser()
-    await encryptUser.init()
+    await encryptUser.initialize()
+
     const encodedFields = encryptUser.encodeSensitiveFields(body)
     const newUser = await db
       .insert(users)
@@ -55,14 +57,12 @@ export const POST = withAuth(async (request: NextRequest, context: { user: User;
         email: body.email,
         ...encodedFields
       })
-      .returning()
+      .returning({ id: users.id })
+      .then(takeUniqueOrThrow)
 
-    return ApiResponse.success(encryptUser.decodeSensitiveFields(newUser[0]), 201)
+    return ApiResponse.success(newUser, 201)
   } catch (error: any) {
-    console.error("Error creating user:", error)
-    if (error.message.includes("UNIQUE constraint failed")) {
-      return ApiResponse.error("Email already exists", 409)
-    }
+    if (error.message.includes("UNIQUE constraint failed")) return ApiResponse.error("Email already exists", 409)
     return ApiResponse.error("Failed to create user")
   }
 })

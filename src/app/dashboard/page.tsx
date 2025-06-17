@@ -12,6 +12,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Label } from "@radix-ui/react-label"
 import { BasicEncryptUser } from "@/lib/basic-encrypt-user"
 import secureLocalStorage from "react-secure-storage"
+import { AES } from "@/lib/aes"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -22,56 +23,33 @@ export default function Dashboard() {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const [rawUser, setUser] = useState<User | null>(null)
-  const [decryptedUser, setDecryptedUser] = useState<User | null>(null)
-
   const [allRawUsers, setAllUsers] = useState<User[]>([])
-  const [allDecryptedUsers, setAllDecryptedUsers] = useState<User[]>([])
 
   const [isLoading, setIsLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
-  useEffect(() => {
-    async function decryptUser() {
-      if (encryptionMode === "server") return
-      if (enableClientSide && rawUser) {
-        const privateKey = secureLocalStorage.getItem("privateKey") as string
-        if (!privateKey) return
-        const encryptUser = new BasicEncryptUser()
-        const decodeUser = await encryptUser.rsaDecryptFields(privateKey, rawUser)
-        setDecryptedUser(decodeUser)
-      }
-    }
-
-    async function decryptUsers() {
-      if (encryptionMode === "server") return
-      if (enableClientSide && allRawUsers) {
-        const privateKey = secureLocalStorage.getItem("privateKey") as string
-        if (!privateKey) return
-        const encryptUser = new BasicEncryptUser()
-        const decodeUsers = await Promise.all(allRawUsers.map((user) => encryptUser.rsaDecryptFields(privateKey, user)))
-        setAllDecryptedUsers(decodeUsers)
-      }
-    }
-
-    if (encryptionMode === "client" && enableClientSide) {
-      console.log("first")
-      decryptUser()
-      decryptUsers()
-    }
-  }, [rawUser, enableClientSide, encryptionMode, allRawUsers])
-
   const user = useMemo(() => {
     if (!rawUser) return null
     if (!enableClientSide) return rawUser
-    return decryptedUser
-  }, [rawUser, enableClientSide, decryptedUser])
+
+    const privateKey = secureLocalStorage.getItem("privateKey") as string
+    if (!privateKey) return rawUser
+    const encryptUser = new BasicEncryptUser(new AES(privateKey))
+    const decodeUser = encryptUser.decodeSensitiveFields(rawUser)
+    return decodeUser
+  }, [rawUser, enableClientSide])
 
   const allUsers = useMemo(() => {
     if (!allRawUsers) return []
     if (!enableClientSide) return allRawUsers
-    return allDecryptedUsers
-  }, [allRawUsers, enableClientSide, allDecryptedUsers])
+
+    const privateKey = secureLocalStorage.getItem("privateKey") as string
+    if (!privateKey) return allRawUsers
+    const encryptUser = new BasicEncryptUser(new AES(privateKey))
+    const decodeUsers = allRawUsers.map((user) => encryptUser.decodeSensitiveFields(user))
+    return decodeUsers
+  }, [allRawUsers, enableClientSide])
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -146,6 +124,7 @@ export default function Dashboard() {
 
     setUser(parsedUser)
     setEncryptionMode(parsedUser.encryptionMode)
+    setEnableClientSide(parsedUser.encryptionMode === "client")
   }
 
   async function fetchAllUsers() {
@@ -180,12 +159,11 @@ export default function Dashboard() {
     }).finally(() => {
       localStorage.removeItem("token")
       localStorage.removeItem("privateKey")
-      localStorage.removeItem("publicKey")
       router.push("/login")
     })
   }
 
-  const handleEditUser = (user: User) => {
+  const handlePressEditUser = (user: User) => {
     setSelectedUser(user)
     setIsModalOpen(true)
   }
@@ -205,19 +183,7 @@ export default function Dashboard() {
         throw new Error("Failed to update user")
       }
 
-      // Refresh users list
       await fetchAllUsers()
-
-      // If the updated user is the current user, update the user state
-      if (selectedUser?.id === user?.id) {
-        const updatedCurrentUser = {
-          ...user,
-          ...updatedUser,
-          decryptedDateOfBirth: updatedUser.dateOfBirth ? updatedUser.dateOfBirth : undefined,
-          decryptedSalary: updatedUser.salary ? `$${parseInt(updatedUser.salary).toLocaleString()}` : undefined
-        }
-        setUser(updatedCurrentUser as User)
-      }
     } catch (error) {
       console.error("Error updating user:", error)
       throw error
@@ -419,7 +385,7 @@ export default function Dashboard() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleEditUser(user)}
+                            onClick={() => handlePressEditUser(user)}
                             disabled={encryptionMode === "client" && !enableClientSide}
                             className="mr-4 opacity-0 group-hover:opacity-100 transition-opacity"
                           >

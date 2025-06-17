@@ -6,7 +6,7 @@ import { aes_keys, takeUniqueOrThrow } from "./db/schema"
 import { BasicEncryptUser } from "./basic-encrypt-user"
 
 export class EncryptUser extends BasicEncryptUser {
-  async init() {
+  async initialize() {
     const kms = new KMS()
     const cache = new Cache()
     const aesKey = await db.select().from(aes_keys).limit(1).then(takeUniqueOrThrow)
