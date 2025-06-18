@@ -1,8 +1,10 @@
 import { sql } from "drizzle-orm"
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
+import { pgTable, text, integer, timestamp, boolean } from "drizzle-orm/pg-core"
 
-export const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const users = pgTable("users", {
+  id: text("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
@@ -11,55 +13,43 @@ export const users = sqliteTable("users", {
   phoneNumber: text("phone_number"),
   address: text("address"),
 
-  role_id: integer("role_id").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  role_id: text("role_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow()
 })
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 
-export const roles = sqliteTable("roles", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull().unique(),
+export const roles = pgTable("roles", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique()
 })
 
 export type Role = typeof roles.$inferSelect
 export type NewRole = typeof roles.$inferInsert
 
-export const sessions = sqliteTable("user_sessions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull(),
+export const sessions = pgTable("user_sessions", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
   publicKey: text("public_key"),
   encryptedAESKey: text("encrypted_aes_key"),
   encryptionMode: text("encryption_mode", { enum: ["server", "client"] })
     .notNull()
     .default("server"),
-  revoked: integer({ mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  revoked: boolean("revoked").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow()
 })
 
 export type Session = typeof sessions.$inferSelect
 export type NewSession = typeof sessions.$inferInsert
 
-export const aes_keys = sqliteTable("aes_keys", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const aes_keys = pgTable("aes_keys", {
+  id: text("id").primaryKey().default(sql`gen_random_uuid()`),
   encryptedKey: text("encrypted_key").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow()
 })
 
 export type AESKey = typeof aes_keys.$inferSelect

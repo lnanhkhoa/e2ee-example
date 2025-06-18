@@ -1,11 +1,11 @@
 # e2ee-user-profile
 
-A modern user profile application with end-to-end encryption (E2EE) built using Next.js, React, TypeScript, and local SQLite storage. This project demonstrates secure handling of user data, modern UI/UX patterns, and a robust, full-stack TypeScript setup.
+A modern user profile application with end-to-end encryption (E2EE) built using Next.js, React, TypeScript, and PostgreSQL storage. This project demonstrates secure handling of user data, modern UI/UX patterns, and a robust, full-stack TypeScript setup.
 
 ## Features
 - End-to-end encrypted user profiles
 - Modern UI with Radix UI and Tailwind CSS
-- Local SQLite database for development
+- PostgreSQL database for development and production
 - Form validation with React Hook Form and Zod
 - Secure storage and authentication
 
@@ -13,9 +13,32 @@ A modern user profile application with end-to-end encryption (E2EE) built using 
 - **Framework:** Next.js 15 (React 19)
 - **Language:** TypeScript
 - **UI:** Tailwind CSS, Radix UI
-- **Database:** SQLite (via Drizzle ORM)
+- **Database:** PostgreSQL (via Drizzle ORM)
 - **ORM:** Drizzle ORM
 - **Other:** bcrypt, JWT, secure storage, PostCSS
+
+## PostgreSQL Setup
+
+You need a running PostgreSQL instance. You can use Docker Compose for local development:
+
+```yaml
+db:
+  image: postgres:15
+  restart: always
+  environment:
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_DB: e2ee
+  ports:
+    - "5432:5432"
+```
+
+Or install PostgreSQL manually and create a database named `e2ee`.
+
+Set your `.env` file:
+```env
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/e2ee
+```
 
 ## Getting Started
 

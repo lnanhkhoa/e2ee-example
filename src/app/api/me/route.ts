@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { aes_keys, Session, sessions, takeUniqueOrThrow } from "@/lib/db/schema"
+import { Session, sessions, takeUniqueOrThrow } from "@/lib/db/schema"
 import { ApiResponse } from "@/lib/api-utils"
 import { and, eq } from "drizzle-orm"
 import jwt from "jsonwebtoken"
@@ -11,8 +11,8 @@ import { BasicEncryptUser } from "@/lib/basic-encrypt-user"
 import { AES } from "@/lib/aes"
 
 type TokenPayload = {
-  userId: number
-  sessionId: number
+  userId: string
+  sessionId: string
 }
 
 // GET /api/me - Get current user

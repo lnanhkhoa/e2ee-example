@@ -24,10 +24,9 @@ type Context = {
 
 // PUT /api/users/[id] - Replace a user
 export const PUT = withAuth(async (request: NextRequest, context: Context) => {
-  const id = (await context.params).id
+  const userId = (await context.params).id
   try {
-    const userId = parseInt(id)
-    if (isNaN(userId)) return ApiResponse.error("Invalid user ID", 400)
+    if (!userId) return ApiResponse.error("Invalid user ID", 400)
 
     const body = await request.json()
 
@@ -62,8 +61,8 @@ export const PUT = withAuth(async (request: NextRequest, context: Context) => {
 // PATCH /api/users/[id] - Partially update a user
 export const PATCH = withAuth(async (request: NextRequest, context: Context) => {
   try {
-    const userId = parseInt((await context.params).id)
-    if (isNaN(userId)) return ApiResponse.error("Invalid user ID", 400)
+    const userId = (await context.params).id
+    if (!userId) return ApiResponse.error("Invalid user ID", 400)
 
     const body = await request.json()
 
@@ -98,10 +97,9 @@ export const PATCH = withAuth(async (request: NextRequest, context: Context) => 
 
 // DELETE /api/users/[id] - Delete a user
 export const DELETE = withAuth(async (request: NextRequest, context: Context) => {
-  const id = (await context.params).id
+  const userId = (await context.params).id
   try {
-    const userId = parseInt(id)
-    if (isNaN(userId)) return ApiResponse.error("Invalid user ID", 400)
+    if (!userId) return ApiResponse.error("Invalid user ID", 400)
 
     // Check if user exists
     const existingUser = await db.select().from(users).where(eq(users.id, userId)).limit(1).then(takeUniqueOrThrow)
