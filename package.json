@@ -11,9 +11,11 @@
     "db:seed": "tsx src/lib/db/seed.ts",
     "db:generate": "npx drizzle-kit generate",
     "db:push": "npx drizzle-kit push",
-    "db:studio": "npx drizzle-kit studio"
+    "db:studio": "npx drizzle-kit studio",
+    "kms:test": "tsx kms-test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.830.0",
     "@hookform/resolvers": "^5.1.1",
     "@radix-ui/react-checkbox": "^1.3.2",
     "@radix-ui/react-dialog": "^1.1.14",
